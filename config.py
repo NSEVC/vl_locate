@@ -44,8 +44,8 @@ checkpoint_path = '/share_sdb/clj/vl_locate/tmp/'
 
 
 # ==== predict ====
-test_data_path = '/share_sdb/clj/vl_locate/test/JPEGImages'
-output_dir = '/share_sdb/clj/vl_locate/test/out'
+test_data_path = '/share_sdb/clj/vl_locate/data/test/JPEGImages'
+output_dir = '/share_sdb/clj/vl_locate/data/test/out'
 max_predict_img_size = input_size
 pixel_threshold = 0.8
 side_vertex_pixel_threshold = 0.9

@@ -129,7 +129,7 @@ def main():
                                   isClosed=True, color=line_color, thickness=line_width
                                   )
 
-                    cv2.imwrite(os.path.join(cfg.test_data_path, image_file.split('/')[-1].split('.')[0] + '_act.jpg'), quad_im)
+                cv2.imwrite(os.path.join(cfg.output_dir, image_file.split('/')[-1].split('.')[0] + '_act.jpg'), quad_im)
 
 
 if __name__ == '__main__':
