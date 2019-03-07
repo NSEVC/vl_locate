@@ -8,7 +8,7 @@ import tensorflow as tf
 import model
 
 import config as cfg
-
+from show_in_tensor import draw_box_with_color_rotate
 
 def quad_loss(y_true, y_pred):
     '''
@@ -91,12 +91,10 @@ def tower_loss(images, gt_maps, reuse_variables=None):
 
     # add summary
     if reuse_variables is None:
-        tf.summary.image('input', images)
-        # tf.summary.image('score_map', score_maps)
-        # tf.summary.image('score_map_pred', f_score * 255)
-        # tf.summary.image('geo_map_0', geo_maps[:, :, :, 0:1])
-        # tf.summary.image('geo_map_0_pred', f_geometry[:, :, :, 0:1])
-        # tf.summary.image('training_masks', training_masks)
+        tf.summary.image('input_image', images)
+        tf.summary.image('score_map', gt_maps[:, :, :, 0:1])
+        tf.summary.image('side_vertex_code_inside', gt_maps[:, :, :, 1:2])
+        tf.summary.image('side_vertex_code_front', gt_maps[:, :, :, 2:3])
         tf.summary.scalar('model_loss', model_loss)
         tf.summary.scalar('total_loss', total_loss)
 

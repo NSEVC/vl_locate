@@ -54,8 +54,14 @@ def main():
     init_op = tf.global_variables_initializer()
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        # 1. init
-        sess.run(init_op)
+        # 1. restore or init
+        if cfg.restore:
+            print('continue training from previous checkpoint')
+            ckpt = tf.train.latest_checkpoint(cfg.checkpoint_path)
+            saver.restore(sess, ckpt)
+        else:
+            sess.run(init_op)
+
 
         # 2. generate data
         data_generator = get_batch(num_workers=cfg.num_readers,
@@ -68,7 +74,7 @@ def main():
         for step in range(cfg.max_steps):
             data = next(data_generator)
             ml, tl, _ = sess.run([model_loss, total_loss, train_op], feed_dict={input_images: data[0],
-                                                                                input_maps: data[1]
+                                                                                input_maps: data[2]
                                                                                 })
             if np.isnan(tl):
                 print('Loss diverged, stop training')
@@ -88,7 +94,7 @@ def main():
                 _, tl, summary_str = sess.run([train_op, total_loss, summary_op], feed_dict={input_images: data[0],
                                                                                              input_maps: data[2]
                                                                                              })
-                summary_writer.add_summary(summary_str, global_step=step)
+            summary_writer.add_summary(summary_str, global_step=step)
 
 
 if __name__ == '__main__':

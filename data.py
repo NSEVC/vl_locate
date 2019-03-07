@@ -363,7 +363,7 @@ def generator(input_size=512, batch_size=32,
 
                 images.append(im_data[:, :, ::-1].astype(np.float32))
                 image_files.append(image_file)
-                gt_maps.append(gt_map[::cfg.pixel_size, ::cfg.pixel_size, np.newaxis].astype(np.float32))
+                gt_maps.append(gt_map.astype(np.float32))
 
                 if len(images) == batch_size:
                     yield images, image_files, gt_maps
