@@ -81,20 +81,20 @@ def quad_norm(g_true):
     return tf.reshape(distance, shape[:-1])
 
 
-def tower_loss(images, gt_maps, reuse_variables=None):
+def tower_loss(images, gt_map, reuse_variables=None):
     # Build inference graph
     with tf.variable_scope(tf.get_variable_scope(), reuse=reuse_variables):
-        pred_maps = model.model(images, is_training=True)
+        pred_map = model.model(images, is_training=True)
 
-    model_loss = quad_loss(gt_maps, pred_maps)
+    model_loss = quad_loss(gt_map, pred_map)
     total_loss = tf.add_n([model_loss] + tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 
     # add summary
     if reuse_variables is None:
         tf.summary.image('input_image', images)
-        tf.summary.image('score_map', gt_maps[:, :, :, 0:1])
-        tf.summary.image('side_vertex_code_inside', gt_maps[:, :, :, 1:2])
-        tf.summary.image('side_vertex_code_front', gt_maps[:, :, :, 2:3])
+        tf.summary.image('score_map', gt_map[:, :, :, 0:1])
+        tf.summary.image('side_vertex_code_inside', gt_map[:, :, :, 1:2])
+        tf.summary.image('side_vertex_code_front', gt_map[:, :, :, 2:3])
         tf.summary.scalar('model_loss', model_loss)
         tf.summary.scalar('total_loss', total_loss)
 

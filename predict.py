@@ -98,12 +98,11 @@ def main():
 
                 timer = {'net': 0, 'restore': 0, 'nms': 0}
                 start = time.time()
-                pred_map = sess.run([f_pred_map], feed_dict={input_images: [im_resized]})
+                pred_map = sess.run(f_pred_map, feed_dict={input_images: [im_resized]})
                 timer['net'] = time.time() - start
                 print('predict cost:', timer['net'])
 
                 pred_map = np.squeeze(pred_map, axis=0)
-                pred_map[:, :, :3] = sigmoid(pred_map[:, :, :3])
                 # filter the score map
                 cond = np.greater_equal(pred_map[:, :, 0], cfg.pixel_threshold)
                 activation_pixels = np.where(cond)
