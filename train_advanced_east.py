@@ -22,13 +22,11 @@ def main():
     input_maps = tf.placeholder(tf.float32, shape=[None, None, None, 7], name='input_maps')
 
     global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable=False)
-    learning_rate = tf.train.exponential_decay(cfg.learning_rate, global_step, decay_steps=10000, decay_rate=0.94, staircase=True)
-
+    learning_rate = tf.train.exponential_decay(cfg.learning_rate, global_step, decay_steps=3000, decay_rate=0.9, staircase=True)
     opt = tf.train.AdamOptimizer(learning_rate)
+
     reuse_variables = None
-    iis = input_images
-    imps = input_maps
-    total_loss, model_loss = tower_loss(iis, imps, reuse_variables)
+    total_loss, model_loss = tower_loss(input_images, input_maps, reuse_variables)
     batch_norm_updates_op = tf.group(*tf.get_collection(tf.GraphKeys.UPDATE_OPS))
 
     grads = opt.compute_gradients(total_loss)

@@ -80,9 +80,9 @@ def model(images, weight_decay=1e-5, is_training=True):
             # we first use a sigmoid to limit the regression range, and also
             # this is do with the angle map
 
-            f_score = slim.conv2d(g[3], 1, 1, activation_fn=tf.nn.sigmoid, normalizer_fn=None)
+            f_score = slim.conv2d(g[3], 1, 1, activation_fn=None, normalizer_fn=None)
             # 4 channel of axis aligned bbox and 1 channel rotation angle
-            side_vertex_code_map = slim.conv2d(g[3], 2, 1, activation_fn=tf.nn.sigmoid, normalizer_fn=None)
+            side_vertex_code_map = slim.conv2d(g[3], 2, 1, activation_fn=None, normalizer_fn=None)
             side_vertex_coord_map = (slim.conv2d(g[3], 4, 1, activation_fn=None, normalizer_fn=None) - 0.5)
 
             out_map = tf.concat([f_score, side_vertex_code_map, side_vertex_coord_map], axis=-1)

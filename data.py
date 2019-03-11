@@ -303,7 +303,7 @@ def process_label(im_size, polys, tags):
 
 def generator(input_size=512, batch_size=32,
               background_ratio=3./8,
-              random_scale=np.array([0.5, 1, 2.0, 3.0]),
+              random_scale=np.array([1.5, 2.0, 2.5]),
               vis=False):
     image_list = np.array(get_images())
     print('{} training images in {}'.format(image_list.shape[0], cfg.training_data_path))

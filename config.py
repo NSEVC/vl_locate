@@ -12,7 +12,7 @@ training_data_path = '/share_sdb/clj/vl_locate/data/train/vl_3'
 
 input_size = 512
 channel = 3
-batch_size = 8
+batch_size = 16
 num_readers = 10
 
 pixel_size = 4
@@ -32,8 +32,8 @@ lambda_side_vertex_coord_loss = 1.0
 
 # ==== train ====
 restore = True
-moving_average_decay = 0.997
-learning_rate = 1e-3
+moving_average_decay = 0.9
+learning_rate = 1e-2
 epsilon = 1e-4
 epoch = 3
 max_steps = 100000
