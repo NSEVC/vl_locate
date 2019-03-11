@@ -82,7 +82,7 @@ def main():
 
         f_pred_map = model.model(input_images, is_training=False)
 
-        variable_averages = tf.train.ExponentialMovingAverage(0.997, global_step)
+        variable_averages = tf.train.ExponentialMovingAverage(cfg.moving_average_decay, global_step)
         saver = tf.train.Saver(variable_averages.variables_to_restore())
 
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:

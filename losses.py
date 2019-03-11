@@ -8,7 +8,6 @@ import tensorflow as tf
 import model
 
 import config as cfg
-from show_in_tensor import draw_box_with_color_rotate
 
 def quad_loss(y_true, y_pred):
     '''
