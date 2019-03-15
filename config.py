@@ -4,13 +4,16 @@
 # @Time    : 2019/3/5 下午4:15
 # @Desc    :
 
+from __future__ import division, print_function, absolute_import
 
+import os
+
+
+root_path = '/share_sdb/clj/vl_locate'
 # ==== load data ====
-# model_size_h = 416
-# model_size_w = 576
-training_data_path = '/share_sdb/clj/vl_locate/data/train/vl_3'
-
-input_size = 512
+dataset_name = 'vehicle_license'   # ['vehicle_license', 'namplate_vin']
+model_height = 416
+model_weight = 576
 channel = 3
 batch_size = 16
 num_readers = 10
@@ -38,18 +41,34 @@ epsilon = 1e-4
 epoch = 3
 max_steps = 100000
 save_checkpoint_steps = 1000
+save_summary = True
 save_summary_steps = 100
-
-checkpoint_path = '/share_sdb/clj/vl_locate/tmp/'
 
 
 # ==== predict ====
-test_data_path = '/share_sdb/clj/vl_locate/data/test/JPEGImages'
-output_dir = '/share_sdb/clj/vl_locate/data/test/out'
-max_predict_img_size = input_size
 pixel_threshold = 0.8
 side_vertex_pixel_threshold = 0.9
 trunc_threshold = 0.1
+visualization = False
+predict_write2txt = False
+
+
+
+def makedirs(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+training_data_path = os.path.join(root_path, 'data/train', dataset_name)
+makedirs(training_data_path)
+
+test_data_path = os.path.join(root_path, 'data/test', dataset_name)
+makedirs(test_data_path)
+
+test_output_dir = os.path.join(root_path, 'data/test', 'out_'+dataset_name)
+makedirs(test_output_dir)
+
+checkpoint_path = os.path.join(root_path, 'backup', 'backup_'+dataset_name)
+makedirs(checkpoint_path)
 
 
 

@@ -63,7 +63,8 @@ def main():
 
         # 2. generate data
         data_generator = get_batch(num_workers=cfg.num_readers,
-                                   input_size=cfg.input_size,
+                                   input_height=cfg.model_height,
+                                   input_width=cfg.model_weight,
                                    batch_size=cfg.batch_size
                                    )
 
@@ -86,7 +87,7 @@ def main():
                     step, ml, tl, avg_time_per_step, avg_examples_per_second))
 
             if step % cfg.save_checkpoint_steps == 0:
-                saver.save(sess, cfg.checkpoint_path + 'model.ckpt', global_step=global_step)
+                saver.save(sess, cfg.checkpoint_path + '/' + cfg.dataset_name + '-model.ckpt', global_step=global_step)
 
             if step % cfg.save_summary_steps == 0:
                 _, tl, summary_str = sess.run([train_op, total_loss, summary_op], feed_dict={input_images: data[0],

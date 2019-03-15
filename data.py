@@ -208,6 +208,72 @@ def crop_area(im_data, polys, tags, crop_background=False, max_tries=50):
 
     return im_data, polys, tags
 
+def crop_area_fixed_size(im_data, polys, tags, crop_background=False, max_tries=50):
+    h, w, c = im_data.shape
+    pad_h = h//10
+    pad_w = w//10
+    h_array = np.zeros((h + pad_h*2), dtype=np.int32)
+    w_array = np.zeros((w + pad_w*2), dtype=np.int32)
+
+    for poly in polys:
+        poly = np.round(poly, decimals=0).astype(np.int32)
+        min_x = np.min(poly[:, 0])
+        max_x = np.max(poly[:, 0])
+        w_array[min_x+pad_w:max_x+pad_w] = 1
+
+        miny = np.min(poly[:, 1])
+        maxy = np.max(poly[:, 1])
+        h_array[miny+pad_h:maxy+pad_h] = 1
+
+    # ensure the cropped area not across a text
+    h_axis = np.where(h_array == 0)[0]
+    w_axis = np.where(w_array == 0)[0]
+    if len(h_axis) == 0 or len(w_axis) == 0:
+        return im_data, polys, tags
+
+    for i in range(max_tries):
+        xx = np.random.choice(w_axis, size=2)
+        x_min = np.min(xx) - pad_w
+        x_max = np.max(xx) - pad_w
+        x_min = np.clip(x_min, 0, w-1)
+        x_max = np.clip(x_max, 0, w-1)
+
+        yy = np.random.choice(h_axis, size=2)
+        y_min = np.min(yy) - pad_h
+        y_max = np.max(yy) - pad_h
+        y_min = np.clip(y_min, 0, h-1)
+        y_max = np.clip(y_max, 0, h-1)
+
+        # the cropped area too small
+        if x_max - x_min < cfg.min_crop_side_ratio * w or y_max - y_min < cfg.min_crop_side_ratio * h:
+            continue
+
+        # select the polygons in cropped area
+        if polys.shape[0] != 0:
+            poly_axis_in_area = (polys[:, :, 0] >= x_min) & (polys[:, :, 0] <= x_max) \
+                                & (polys[:, :, 1] >= y_min) & (polys[:, :, 1] <= y_max)
+            selected_polys = np.where(np.sum(poly_axis_in_area, axis=1) == 4)[0]
+        else:
+            selected_polys = []
+
+        if len(selected_polys) == 0:
+            # no text in this area
+            if crop_background:
+                im_data_cropped = np.zeros((h, w, c), dtype=np.uint8)
+                im_data_cropped[y_min:y_max + 1, x_min:x_max + 1, :] = im_data[y_min:y_max + 1, x_min:x_max + 1, :]
+                return im_data_cropped, polys[selected_polys], tags[selected_polys]
+            else:
+                continue
+
+        im_data_cropped = np.zeros((h, w, c), dtype=np.uint8)
+        im_data_cropped[y_min:y_max+1, x_min:x_max+1, :] = im_data[y_min:y_max+1, x_min:x_max+1, :]
+        polys = polys[selected_polys]
+        tags = tags[selected_polys]
+
+        return im_data, polys, tags
+
+    return im_data, polys, tags
+
 
 def shrink(xy_list, ratio=cfg.shrink_ratio):
     if ratio == 0.0:
@@ -300,8 +366,27 @@ def process_label(im_size, polys, tags):
     return gt_map
 
 
+def pad_image(im_data, model_height=384, model_width=512):
+    h, w, c = im_data.shape
 
-def generator(input_size=512, batch_size=32,
+    scale = min(model_width / w, model_height / h)
+    if scale == model_width / w:
+        new_w = model_width
+        new_h = int(h * scale)
+    else:
+        new_w = int(w * scale)
+        new_h = model_height
+
+    im_data_resized = cv2.resize(im_data, (new_w, new_h))
+    im_data_padded = np.zeros((model_height, model_width, 3), dtype=np.uint8)
+    im_data_padded[:new_h, :new_w, :] = im_data_resized.copy()
+
+    return im_data_padded, scale
+
+
+def generator(model_height=384,
+              model_width=512,
+              batch_size=32,
               background_ratio=3./8,
               random_scale=np.array([1.5, 2.0, 2.5]),
               vis=False):
@@ -316,10 +401,11 @@ def generator(input_size=512, batch_size=32,
         gt_maps = []
         for i in index:
             try:
+                # [1]. load image and annotations
                 image_file = image_list[i]
                 im_data = cv2.imread(image_file)
-                # im_data = distort_color(im_data)
-                h, w, _ = im_data.shape
+                h, w, c = im_data.shape
+
                 txt_fn = image_file.replace(os.path.basename(image_file).split('.')[1], 'txt')
                 if not os.path.exists(txt_fn):
                     print('text file {} does not exists'.format(txt_fn))
@@ -329,36 +415,44 @@ def generator(input_size=512, batch_size=32,
 
                 text_polys, text_tags = check_and_validate_polys(text_polys, text_tags, (h, w))
 
-                # if text_polys.shape[0] == 0:
-                #     continue
-                # random scale this image
-                rd_scale = np.random.choice(random_scale)
-                im_data = cv2.resize(im_data, dsize=None, fx=rd_scale, fy=rd_scale)
-                text_polys *= rd_scale
-
-                # random crop a area from image, contain at least one text polygon
-                im_data, text_polys, text_tags = crop_area(im_data, text_polys, text_tags, crop_background=False)
                 if text_polys.shape[0] == 0:
                     continue
 
-                h, w, _ = im_data.shape
+                # [2]. process the image and annotations
+                if cfg.dataset_name == 'vehicle_license':
+                    if h == model_height and w == model_width:
+                        continue
+                    else:
+                        scale_h = model_height / h
+                        scale_w = model_width / w
+                        cv2.resize(im_data, (model_width, model_height))
+                        text_polys[:, :, 0] *= scale_w
+                        text_polys[:, :, 1] *= scale_h
 
-                # pad the image to the training input size or the longer side of image
-                new_h, new_w, _ = im_data.shape
-                max_h_w_i = np.max([new_h, new_w, input_size])
-                im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype=np.uint8)
-                im_padded[:new_h, :new_w, :] = im_data.copy()
-                im_data = im_padded
-                # resize the image to input size
-                new_h, new_w, _ = im_data.shape
-                resize_h = input_size
-                resize_w = input_size
-                im_data = cv2.resize(im_data, dsize=(resize_w, resize_h))
-                resize_ratio_3_x = resize_w/float(new_w)
-                resize_ratio_3_y = resize_h/float(new_h)
-                text_polys[:, :, 0] *= resize_ratio_3_x
-                text_polys[:, :, 1] *= resize_ratio_3_y
-                new_h, new_w, _ = im_data.shape
+                    # random crop the image; keep the cropped image values and set other values to zero
+                    im_data_croped, text_polys, text_tags = crop_area_fixed_size(im_data, text_polys, text_tags, crop_background=False)
+                    if text_polys.shape[0] == 0:
+                        continue
+
+                else:
+                    # ~~ random scale the image ~~
+                    # rd_scale = np.random.choice(random_scale)
+                    # im_data = cv2.resize(im_data, dsize=None, fx=rd_scale, fy=rd_scale)
+                    # text_polys *= rd_scale
+
+                    # random crop a area from image, contain at least one text polygon
+                    im_data_croped, text_polys, text_tags = crop_area(im_data, text_polys, text_tags, crop_background=False)
+                    if text_polys.shape[0] == 0:
+                        continue
+
+                    # pad the image to (model_height, model_width) or the longer side of image; top left padded
+                        im_data_croped, scale = pad_image(im_data_croped, model_height, model_width)
+                    text_polys[:, :, 0] *= scale
+                    text_polys[:, :, 1] *= scale
+
+                # process label to gt_map
+                new_h, new_w, _ = im_data_croped.shape
+
                 gt_map = process_label((new_h, new_w), text_polys, text_tags)
 
                 images.append(im_data[:, :, ::-1].astype(np.float32))
