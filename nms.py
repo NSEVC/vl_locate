@@ -88,3 +88,87 @@ def nms(predict, activation_pixels, threshold=cfg.side_vertex_pixel_threshold):
         score_list[g_th] = total_score[:, 0]
         quad_list[g_th] /= (total_score + cfg.epsilon)
     return score_list, quad_list
+
+
+def nms_hor(predict, activation_pixels, threshold=0.9, trunc_threshold=0.1, pixel_size=4, epsilon=1e-4):
+    h, w, _ = predict.shape
+    region_list = []
+    for i, j in zip(activation_pixels[0], activation_pixels[1]):
+        merge = False
+        for k in range(len(region_list)):
+            if should_merge(region_list[k], i, j):
+                region_list[k].add((i, j))
+                merge = True
+                # Fixme 重叠文本区域处理，存在和多个区域邻接的pixels，先都merge试试
+                # break
+        if not merge:
+            region_list.append({(i, j)})
+    D = region_group(region_list)
+    quad_list = np.zeros((len(D), 4, 2))
+    score_list = np.zeros((len(D), 4))
+    for group, g_th in zip(D, range(len(D))):
+        total_score = np.zeros((4, 2))
+        min_x, min_y, max_x, max_y = (np.inf, np.inf, 0, 0)
+        for row in group:
+            for ij in region_list[row]:
+                score = predict[ij[0], ij[1], 1]
+                px = (ij[1] + 0.5) * pixel_size
+                py = (ij[0] + 0.5) * pixel_size
+
+                if px < min_x: min_x = px
+                if px > max_x: max_x = px
+                if py < min_y: min_y = py
+                if py > max_y: max_y = py
+
+                if score >= threshold:
+                    ith_score = predict[ij[0], ij[1], 2:3]
+                    if not (trunc_threshold <= ith_score < 1 - trunc_threshold):
+                        ith = int(np.around(ith_score))
+                        total_score[ith * 2:(ith + 1) * 2] += score
+                        p_v = [px, py] + np.reshape(predict[ij[0], ij[1], 3:7], (2, 2))
+                        quad_list[g_th, ith * 2:(ith + 1) * 2] += score * p_v
+
+        score_list[g_th] = total_score[:, 0]
+        quad_list[g_th] /= (total_score + epsilon)
+
+        # TODO: change to support any direction
+        # one side vertex(only horizontal)
+        if score_list[g_th, 0] == 0 and score_list[g_th, 3] != 0:
+            score_list[g_th, 0:2] += 1
+            quad_list[g_th, 0, 0] = min_x - (max_y - min_y) / 3 if min_x - (max_y - min_y) / 3 > 0 else 0
+            quad_list[g_th, 1, 0] = quad_list[g_th, 0, 0]
+            quad_list[g_th, 0, 1] = quad_list[g_th, 3, 1]
+            quad_list[g_th, 1, 1] = quad_list[g_th, 2, 1]
+
+        elif score_list[g_th, 3] == 0 and score_list[g_th, 0] != 0:
+            score_list[g_th, 2:4] += 1
+            quad_list[g_th, 2, 0] = max_x + (max_y - min_y) / 3 if min_x + (max_y - min_y) / 3 < w * 4 else w * 4
+            quad_list[g_th, 3, 0] = quad_list[g_th, 2, 0]
+            quad_list[g_th, 2, 1] = quad_list[g_th, 1, 1]
+            quad_list[g_th, 3, 1] = quad_list[g_th, 0, 1]
+
+        if total_score[0, 0] != 0 and total_score[3, 0] != 0:
+            if quad_list[g_th, 0, 0] - min_x > 0 and quad_list[g_th, 3, 0] - max_x < 0:
+                quad_list[g_th, 0, 0] = min_x - (max_y - min_y) / 3 if min_x - (max_y - min_y) / 3 > 0 else 0
+                quad_list[g_th, 1, 0] = quad_list[g_th, 0, 0]
+                quad_list[g_th, 0, 1] = min_y - (max_y - min_y) / 3 if min_y - (max_y - min_y) / 3 > 0 else 0
+                quad_list[g_th, 1, 1] = max_y + (max_y - min_y) / 3 if min_y - (max_y - min_y) / 3 < h * 4 else h * 4
+
+                quad_list[g_th, 2, 0] = max_x + (max_y - min_y) / 3 if min_x + (max_y - min_y) / 3 < w * 4 else w * 4
+                quad_list[g_th, 3, 0] = quad_list[g_th, 2, 0]
+                quad_list[g_th, 2, 1] = quad_list[g_th, 1, 1]
+                quad_list[g_th, 3, 1] = quad_list[g_th, 0, 1]
+
+            if quad_list[g_th, 0, 0] - min_x > 0:
+                quad_list[g_th, 0, 0] = min_x - (max_y - min_y) / 3 if min_x - (max_y - min_y) / 3 > 0 else 0
+                quad_list[g_th, 1, 0] = quad_list[g_th, 0, 0]
+                quad_list[g_th, 0, 1] = quad_list[g_th, 3, 1]
+                quad_list[g_th, 1, 1] = quad_list[g_th, 2, 1]
+
+            if quad_list[g_th, 3, 0] - max_x < 0:
+                quad_list[g_th, 2, 0] = max_x + (max_y - min_y) / 3 if min_x + (max_y - min_y) / 3 < w * 4 else w * 4
+                quad_list[g_th, 3, 0] = quad_list[g_th, 2, 0]
+                quad_list[g_th, 2, 1] = quad_list[g_th, 1, 1]
+                quad_list[g_th, 3, 1] = quad_list[g_th, 0, 1]
+
+    return score_list, quad_list

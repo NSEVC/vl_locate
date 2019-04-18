@@ -57,9 +57,9 @@ def visualize_activation_pixels(im_data, pred_map, activation_pixels, scale):
                         [px + 0.5 * cfg.pixel_size, py - 0.5 * cfg.pixel_size],
                         [px + 0.5 * cfg.pixel_size, py + 0.5 * cfg.pixel_size],
                         [px - 0.5 * cfg.pixel_size, py + 0.5 * cfg.pixel_size],
-                        [px - 0.5 * cfg.pixel_size, py - 0.5 * cfg.pixel_size]])
+                        [px - 0.5 * cfg.pixel_size, py - 0.5 * cfg.pixel_size]]) / scale
 
-        cv2.polylines(im_data, pts=pts/scale, isClosed=True, color=line_color, thickness=line_width)
+        cv2.polylines(im_data, pts=np.int32([pts]), isClosed=True, color=line_color, thickness=line_width)
 
     return im_data
 
@@ -67,8 +67,8 @@ def visualize_out_box(im_data, quad_scores, quad_after_nms, scale, quiet=False):
     txt_items = []
     for score, geo, index in zip(quad_scores, quad_after_nms, range(len(quad_scores))):
         if np.amin(score) > 0:
-            pts = np.array([geo[0], geo[1], geo[2], geo[3], geo[0]])
-            cv2.polylines(im_data, pts=pts / scale, isClosed=True, color=(0, 0, 255), thickness=2)
+            pts = np.array([geo[0], geo[1], geo[2], geo[3], geo[0]]) / scale
+            cv2.polylines(im_data, pts=np.int32([pts]), isClosed=True, color=(0, 0, 255), thickness=2)
 
             rescaled_geo = geo / scale
             rescaled_geo_list = np.reshape(rescaled_geo, (8,)).tolist()
@@ -81,13 +81,7 @@ def visualize_out_box(im_data, quad_scores, quad_after_nms, scale, quiet=False):
 
 def main():
     import os
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-
-    try:
-        os.makedirs(cfg.output_dir)
-    except OSError as e:
-        if e.errno != 17:
-            raise
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
     with tf.get_default_graph().as_default():
         # [1]. create graph
@@ -122,6 +116,7 @@ def main():
                 # [5]. post process
                 pred_map = np.squeeze(pred_map, axis=0)
                 pred_map[:, :, :3] = sigmoid(pred_map[:, :, :3])
+                cv2.imwrite(os.path.join(cfg.test_output_dir, image_file.split('/')[-1].split('.')[0] + '_map.jpg'), pred_map[:, :, :1] * 255)
 
                 # get activation pixels
                 cond = np.greater_equal(pred_map[:, :, 0], cfg.pixel_threshold)
@@ -137,11 +132,11 @@ def main():
                 # [6]. visualize
                 if cfg.visualization:
                     # visualize the activation pixels
-                    im_data_act = visualize_activation_pixels(im_data, pred_map, activation_pixels, scale)
+                    im_data_act = visualize_activation_pixels(im_data.copy(), pred_map, activation_pixels, scale)
                     cv2.imwrite(os.path.join(cfg.test_output_dir, image_file.split('/')[-1].split('.')[0] + '_act.jpg'), im_data_act)
 
                     # visualize the out boxes
-                    im_data_detect, txt_items = visualize_out_box(im_data, quad_scores, quad_after_nms, scale)
+                    im_data_detect, txt_items = visualize_out_box(im_data.copy(), quad_scores, quad_after_nms, scale)
                     cv2.imwrite(os.path.join(cfg.test_output_dir, image_file.split('/')[-1].split('.')[0] + '_out.jpg'), im_data_detect)
 
                     if cfg.predict_write2txt and len(txt_items) > 0:

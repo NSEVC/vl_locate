@@ -11,9 +11,9 @@ import os
 
 root_path = '/share_sdb/clj/vl_locate'
 # ==== load data ====
-dataset_name = 'vehicle_license'   # ['vehicle_license', 'namplate_vin']
+dataset_name = 'vehicle_license'   # ['vehicle_license', 'namplate_vin', 'gps_ids_rotate']
 model_height = 416
-model_weight = 576
+model_weight = 608
 channel = 3
 batch_size = 16
 num_readers = 10
@@ -21,9 +21,9 @@ num_readers = 10
 pixel_size = 4
 
 # ==== data preprocess ====
-min_crop_side_ratio = 0.7
-min_text_size = 10   # 文字框最小的边长
-shrink_ratio = 0.3
+min_crop_side_ratio = 0.5
+min_text_size = 5   # 文字框最小的边长
+shrink_ratio = 0.2
 shrink_side_ratio = 0.6
 PIXEL_MEAN = [123.68, 116.779, 103.939]
 
@@ -46,11 +46,11 @@ save_summary_steps = 100
 
 
 # ==== predict ====
-pixel_threshold = 0.8
+pixel_threshold = 0.9
 side_vertex_pixel_threshold = 0.9
 trunc_threshold = 0.1
-visualization = False
-predict_write2txt = False
+visualization = True
+predict_write2txt = True
 
 
 

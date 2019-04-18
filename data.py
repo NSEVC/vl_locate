@@ -4,7 +4,7 @@
 # @Time    : 2019/3/6 下午2:19
 # @Desc    :
 
-# coding:utf-8
+from __future__ import division, print_function, absolute_import
 import glob
 import cv2
 import time
@@ -131,7 +131,7 @@ def check_and_validate_polys(polys, tags, xxx_todo_changeme):
             # print poly
             print('invalid poly')
             continue
-        if p_area > 0:
+        if p_area > 0:  # 逆时针
             print('poly in wrong direction')
             poly = poly[(0, 3, 2, 1), :]
         validated_polys.append(poly)
@@ -379,7 +379,7 @@ def pad_image(im_data, model_height=384, model_width=512):
 
     im_data_resized = cv2.resize(im_data, (new_w, new_h))
     im_data_padded = np.zeros((model_height, model_width, 3), dtype=np.uint8)
-    im_data_padded[:new_h, :new_w, :] = im_data_resized.copy()
+    im_data_padded[:new_h, :new_w, :] = im_data_resized
 
     return im_data_padded, scale
 
@@ -425,7 +425,7 @@ def generator(model_height=384,
                     else:
                         scale_h = model_height / h
                         scale_w = model_width / w
-                        cv2.resize(im_data, (model_width, model_height))
+                        im_data = cv2.resize(im_data, (model_width, model_height))
                         text_polys[:, :, 0] *= scale_w
                         text_polys[:, :, 1] *= scale_h
 
@@ -446,7 +446,7 @@ def generator(model_height=384,
                         continue
 
                     # pad the image to (model_height, model_width) or the longer side of image; top left padded
-                        im_data_croped, scale = pad_image(im_data_croped, model_height, model_width)
+                    im_data_croped, scale = pad_image(im_data_croped, model_height, model_width)
                     text_polys[:, :, 0] *= scale
                     text_polys[:, :, 1] *= scale
 
@@ -455,7 +455,7 @@ def generator(model_height=384,
 
                 gt_map = process_label((new_h, new_w), text_polys, text_tags)
 
-                images.append(im_data[:, :, ::-1].astype(np.float32))
+                images.append(im_data_croped.astype(np.float32))
                 image_files.append(image_file)
                 gt_maps.append(gt_map.astype(np.float32))
 

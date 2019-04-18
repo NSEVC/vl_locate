@@ -36,7 +36,7 @@ def main():
     # reuse_variables = True
 
 
-    summary_op = tf.summary.merge_all()
+    # summary_op = tf.summary.merge_all()
     # save moving average
     variable_averages = tf.train.ExponentialMovingAverage(cfg.moving_average_decay, global_step)
     variables_averages_op = variable_averages.apply(tf.trainable_variables())
@@ -47,10 +47,11 @@ def main():
 
 
     saver = tf.train.Saver(tf.global_variables())
-    summary_writer = tf.summary.FileWriter(cfg.checkpoint_path, tf.get_default_graph())
+    # summary_writer = tf.summary.FileWriter(cfg.checkpoint_path, tf.get_default_graph())
 
     init_op = tf.global_variables_initializer()
 
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         # 1. restore or init
         if cfg.restore:
@@ -63,8 +64,8 @@ def main():
 
         # 2. generate data
         data_generator = get_batch(num_workers=cfg.num_readers,
-                                   input_height=cfg.model_height,
-                                   input_width=cfg.model_weight,
+                                   model_height=cfg.model_height,
+                                   model_width=cfg.model_weight,
                                    batch_size=cfg.batch_size
                                    )
 
@@ -90,10 +91,10 @@ def main():
                 saver.save(sess, cfg.checkpoint_path + '/' + cfg.dataset_name + '-model.ckpt', global_step=global_step)
 
             if step % cfg.save_summary_steps == 0:
-                _, tl, summary_str = sess.run([train_op, total_loss, summary_op], feed_dict={input_images: data[0],
-                                                                                             input_maps: data[2]
-                                                                                             })
-            summary_writer.add_summary(summary_str, global_step=step)
+                _, tl = sess.run([train_op, total_loss], feed_dict={input_images: data[0], input_maps: data[2]})
+
+
+            # summary_writer.add_summary(summary_str, global_step=step)
 
 
 if __name__ == '__main__':
