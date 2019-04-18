@@ -10,6 +10,8 @@ import cv2
 import time
 import os
 import numpy as np
+import random
+from PIL import Image, ImageEnhance
 
 from data_util import GeneratorEnqueuer
 import config as cfg
@@ -383,6 +385,59 @@ def pad_image(im_data, model_height=384, model_width=512):
 
     return im_data_padded, scale
 
+def color_transform(im_data):
+    def randomColor(image):
+        """
+        对图像进行颜色抖动
+        :param image: PIL的图像image
+        :return: 有颜色色差的图像image
+        """
+        random_factor = np.random.randint(0, 21) / 10.
+        color_image = ImageEnhance.Color(image).enhance(random_factor)  # 调整图像的饱和度
+        random_factor = np.random.randint(10, 16) / 10.
+        brightness_image = ImageEnhance.Brightness(color_image).enhance(random_factor)  # 调整图像的亮度
+        random_factor = np.random.randint(10, 21) / 10.
+        contrast_image = ImageEnhance.Contrast(brightness_image).enhance(random_factor)  # 调整图像对比度
+        random_factor = np.random.randint(0, 21) / 10.
+        return ImageEnhance.Sharpness(contrast_image).enhance(random_factor)  # 调整图像锐度
+
+    def randomGaussian(image, mean=0.2, sigma=0.3):
+        """
+         对图像进行高斯噪声处理
+        :param image:
+        :return:
+        """
+
+        def gaussianNoisy(im, mean=0.2, sigma=0.3):
+            """
+            对图像做高斯噪音处理
+            :param im: 单通道图像
+            :param mean: 偏移量
+            :param sigma: 标准差
+            :return:
+            """
+            for _i in range(len(im)):
+                im[_i] += random.gauss(mean, sigma)
+            return im
+
+        # 将图像转化成数组
+        img = np.asarray(image)
+        img.flags.writeable = True  # 将数组改为读写模式
+        width, height = img.shape[:2]
+        img_r = gaussianNoisy(img[:, :, 0].flatten(), mean, sigma)
+        img_g = gaussianNoisy(img[:, :, 1].flatten(), mean, sigma)
+        img_b = gaussianNoisy(img[:, :, 2].flatten(), mean, sigma)
+        img[:, :, 0] = img_r.reshape([width, height])
+        img[:, :, 1] = img_g.reshape([width, height])
+        img[:, :, 2] = img_b.reshape([width, height])
+        return Image.fromarray(np.uint8(img))
+
+    im_data = Image.fromarray(cv2.cvtColor(im_data, cv2.COLOR_BGR2RGB))
+    im_data = randomColor(im_data)
+    im_data = randomGaussian(im_data)
+    im_data = cv2.cvtColor(np.asarray(im_data), cv2.COLOR_RGB2BGR)
+
+    return im_data
 
 def generator(model_height=384,
               model_width=512,
@@ -429,6 +484,9 @@ def generator(model_height=384,
                         text_polys[:, :, 0] *= scale_w
                         text_polys[:, :, 1] *= scale_h
 
+                    # random color transform
+                    im_data = color_transform(im_data)
+
                     # random crop the image; keep the cropped image values and set other values to zero
                     im_data_croped, text_polys, text_tags = crop_area_fixed_size(im_data, text_polys, text_tags, crop_background=False)
                     if text_polys.shape[0] == 0:
@@ -444,6 +502,9 @@ def generator(model_height=384,
                     im_data_croped, text_polys, text_tags = crop_area(im_data, text_polys, text_tags, crop_background=False)
                     if text_polys.shape[0] == 0:
                         continue
+
+                    # random color transform
+                    im_data_croped = color_transform(im_data_croped)
 
                     # pad the image to (model_height, model_width) or the longer side of image; top left padded
                     im_data_croped, scale = pad_image(im_data_croped, model_height, model_width)
